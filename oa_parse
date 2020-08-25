@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+import fileinput
+import json
+import re
+
+def unpack_schema(common, response_schema, name):
+    if response_schema['modelType'] == 'ref':
+        ref = response_schema['$ref']
+        parse = re.match(r'#components/schemas/(.+)', ref)
+        return common['components']['schemas'][parse.group(1)]
+    elif response_schema['modelType'] == 'schema' and 'oneOf' in response_schema:
+        responses_mul = []
+        for one_response in response_schema['oneOf']:
+            responses_mul.append(unpack_schema(common, one_response, name))
+        return {'one_of': responses_mul}
+    else:
+        raise Exception('Wrong type {0} of schema in {1}'.format(response_schema['modelType'], name))
+
+data = input()
+schema = json.loads(data)
+results = []
+for path in schema['paths'].keys():
+    for method in schema['paths'][path]:
+        name = schema['paths'][path][method]['operationId']
+        responses = schema['paths'][path][method]['responses']
+        if not '200' in responses or not 'application/json' in responses['200']['content']:
+        	continue
+        response_schema = responses['200']['content']['application/json']['schema']
+        parsed_schema = unpack_schema(schema, response_schema, name)
+        results.append([name, parsed_schema])
+
+for r in results:
+    print(r[0])
+    print(r[1])
+    print()
