@@ -19,10 +19,16 @@ def unpack_schema(common, response_schema, name):
         return {'oneOf': responses_mul}
     elif response_schema['modelType'] == 'schema' and response_schema['type'] == 'object' or response_schema['type'] == 'array':
         return unpack_properties(common, response_schema, name)
-    elif response_schema['modelType'] == 'schema' and (response_schema['type'] == 'string' or
-                                                       response_schema['type'] == 'integer'or
-                                                       response_schema['type'] == 'boolean'):
+    elif response_schema['modelType'] == 'schema' and (response_schema['type'] == 'string'  or
+                                                       response_schema['type'] == 'integer' or
+                                                       response_schema['type'] == 'boolean' or
+                                                       response_schema['type'] == 'number'  or
+                                                       response_schema['type'] == 'void'):
+        if 'nullable' in response_schema and response_schema['nullable']:
+            response_schema['type'] = [response_schema['type'], 'null']
         return response_schema
+    elif response_schema['modelType'] == 'schema' and isinstance(response_schema['type'], list):
+        return response_schema #уже изменили по ссылке
     else:
         raise Exception('Wrong type {0} of schema in {1}'.format(response_schema['modelType'], name))
 
@@ -30,8 +36,7 @@ def unpack_properties(common, response_schema, name):
     if response_schema['type'] == 'object':
         for field in response_schema['properties']:
             field_obj = response_schema['properties'][field]
-            if 'oneOf' in field_obj or field_obj['modelType'] == 'ref' or field_obj['type'] == 'array' or field_obj['type'] == 'object':
-                response_schema['properties'][field] = unpack_schema(common, response_schema['properties'][field], name)
+            response_schema['properties'][field] = unpack_schema(common, response_schema['properties'][field], name)
     elif response_schema['type'] == 'array':
         response_schema['items'] = unpack_schema(common, response_schema['items'], name)
     return response_schema
